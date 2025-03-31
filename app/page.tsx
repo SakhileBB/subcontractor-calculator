@@ -94,25 +94,35 @@ export default function SubcontractorCalculator() {
   };
 
   const calculate = () => {
-    const subcontractorProfitShareRaw = netIncome * subcontractorPercentage;
-const subcontractorProfitShare = subcontractorProfitShareRaw - MANAGEMENT_FEE;
-const finalAmount = subcontractorExpenseShare + subcontractorProfitShare;
-
-const resultRows: ResultRow[] = [
-  { description: "Income", amount: parsedIncome },
-  { description: "Transport Cost", amount: parsedTransport },
-  { description: "Cleaner Cost", amount: parsedCleaner },
-  { description: "Cleaning Supplies", amount: parsedSupplies },
-  ...customExpenses.map(exp => ({ description: `${exp.name} (Custom)`, amount: exp.amount })),
-  { description: "Total Expenses", amount: totalExpenses },
-  { description: "Subcontractor's Expense Share", amount: subcontractorExpenseShare },
-  { description: "Amount Owed to Subcontractor", amount: finalAmount },
-  { description: "Subcontractor's Profit Share", amount: subcontractorProfitShare }
-];
-
-
+    const parsedIncome = parseFloat(cleanNumber(income));
+    const parsedTransport = parseFloat(cleanNumber(transport));
+    const parsedCleaner = parseFloat(cleanNumber(cleaner));
+    const parsedSupplies = parseFloat(cleanNumber(cleaningSupplies));
+    const fixedExpenses = parsedTransport + parsedCleaner + parsedSupplies;
+    const customTotal = customExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalExpenses = fixedExpenses + customTotal;
+  
+    const subcontractorExpenseShare = totalExpenses * subcontractorPercentage;
+    const netIncome = parsedIncome - totalExpenses;
+  
+    const subcontractorProfitShare = (netIncome * subcontractorPercentage) - MANAGEMENT_FEE;
+    const finalAmount = subcontractorExpenseShare + subcontractorProfitShare;
+  
+    const resultRows: ResultRow[] = [
+      { description: "Income", amount: parsedIncome },
+      { description: "Transport Cost", amount: parsedTransport },
+      { description: "Cleaner Cost", amount: parsedCleaner },
+      { description: "Cleaning Supplies", amount: parsedSupplies },
+      ...customExpenses.map(exp => ({ description: `${exp.name} (Custom)`, amount: exp.amount })),
+      { description: "Total Expenses", amount: totalExpenses },
+      { description: "Subcontractor's Expense Share", amount: subcontractorExpenseShare },
+      { description: "Amount Owed to Subcontractor", amount: finalAmount },
+      { description: "Subcontractor's Profit Share", amount: subcontractorProfitShare }
+    ];
+  
     setResults(resultRows);
   };
+  
 
   const reset = () => {
     setIncome("");
