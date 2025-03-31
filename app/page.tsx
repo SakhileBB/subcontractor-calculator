@@ -83,26 +83,47 @@ export default function SubcontractorCalculator() {
       </div>
 
       <div style={{ display: "grid", gap: "1rem" }}>
-        <input type="number" placeholder="Income" value={income} onChange={(e) => setIncome(Number(e.target.value))} />
-        <input type="number" placeholder="Transport Cost" value={transport} onChange={(e) => setTransport(Number(e.target.value))} />
-        <input type="number" placeholder="Cleaner Cost" value={cleaner} onChange={(e) => setCleaner(Number(e.target.value))} />
-        <input type="number" placeholder="Cleaning Supplies" value={cleaningSupplies} onChange={(e) => setCleaningSupplies(Number(e.target.value))} />
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+          Income
+          <input type="number" value={income} onChange={(e) => setIncome(Number(e.target.value))} />
+        </label>
 
-        <div style={{ display: "flex", gap: "0.5rem" }}>
-          <input
-            type="text"
-            placeholder="New Expense Name"
-            value={newExpenseName}
-            onChange={(e) => setNewExpenseName(e.target.value)}
-            style={{ flex: 2 }}
-          />
-          <input
-            type="number"
-            placeholder="Amount"
-            value={newExpenseAmount}
-            onChange={(e) => setNewExpenseAmount(Number(e.target.value))}
-            style={{ flex: 1 }}
-          />
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+          Transport Cost
+          <input type="number" value={transport} onChange={(e) => setTransport(Number(e.target.value))} />
+        </label>
+
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+          Cleaner Cost
+          <input type="number" value={cleaner} onChange={(e) => setCleaner(Number(e.target.value))} />
+        </label>
+
+        <label style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+          Cleaning Supplies
+          <input type="number" value={cleaningSupplies} onChange={(e) => setCleaningSupplies(Number(e.target.value))} />
+        </label>
+
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end" }}>
+          <label style={{ flex: 2 }}>
+            New Expense Name
+            <input
+              type="text"
+              placeholder="e.g. Security"
+              value={newExpenseName}
+              onChange={(e) => setNewExpenseName(e.target.value)}
+              style={{ width: "100%" }}
+            />
+          </label>
+          <label style={{ flex: 1 }}>
+            Amount
+            <input
+              type="number"
+              placeholder="e.g. 500"
+              value={newExpenseAmount}
+              onChange={(e) => setNewExpenseAmount(Number(e.target.value))}
+              style={{ width: "100%" }}
+            />
+          </label>
           <button onClick={addCustomExpense}>Add</button>
         </div>
 
