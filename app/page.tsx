@@ -7,52 +7,85 @@ import html2canvas from "html2canvas";
 type Expense = { name: string; amount: number };
 type ResultRow = { description: string; amount: number };
 
-const exportToPDF = async () => {
+const exportToPDF = async (
+  invoiceNumber: string,
+  dateRange: string
+) => {
   const input = document.getElementById("results-table");
   if (!input) return;
+
   const canvas = await html2canvas(input);
   const imgData = canvas.toDataURL("image/png");
+
   const pdf = new jsPDF("p", "mm", "a4");
   const width = pdf.internal.pageSize.getWidth();
   const height = (canvas.height * width) / canvas.width;
-  pdf.addImage(imgData, "PNG", 0, 10, width, height);
+
+  pdf.setFontSize(14);
+  pdf.text("Uttam Student Village Sub contractor calculation", 10, 10);
+  if (invoiceNumber) {
+    pdf.setFontSize(12);
+    pdf.text(`Invoice #: ${invoiceNumber}`, 10, 18);
+  }
+  if (dateRange) {
+    pdf.setFontSize(12);
+    pdf.text(`Payment Range: ${dateRange}`, 10, 26);
+  }
+
+  pdf.addImage(imgData, "PNG", 0, 35, width, height);
   pdf.save("uttam-subcontractor-report.pdf");
 };
 
 export default function SubcontractorCalculator() {
-  const [income, setIncome] = useState(0);
-  const [transport, setTransport] = useState(0);
-  const [cleaner, setCleaner] = useState(0);
-  const [cleaningSupplies, setCleaningSupplies] = useState(0);
+  const [income, setIncome] = useState<number | string>("");
+  const [transport, setTransport] = useState<number | string>("");
+  const [cleaner, setCleaner] = useState<number | string>("");
+  const [cleaningSupplies, setCleaningSupplies] = useState<number | string>("");
   const [customExpenses, setCustomExpenses] = useState<Expense[]>([]);
   const [newExpenseName, setNewExpenseName] = useState("");
-  const [newExpenseAmount, setNewExpenseAmount] = useState(0);
+  const [newExpenseAmount, setNewExpenseAmount] = useState<number | string>("");
+
+  const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
   const [results, setResults] = useState<ResultRow[] | null>(null);
 
   const subcontractorPercentage = 35.55555555555556 / 100;
 
+  const cleanNumber = (val: string | number) =>
+    String(val).replace(/^0+(?!$)/, "").trim(); // strip leading zeros except for single 0
+
   const addCustomExpense = () => {
-    if (!newExpenseName || newExpenseAmount <= 0) return;
-    setCustomExpenses([...customExpenses, { name: newExpenseName, amount: newExpenseAmount }]);
+    const name = newExpenseName.trim();
+    const amount = parseFloat(cleanNumber(newExpenseAmount));
+    if (!name || isNaN(amount) || amount <= 0) return;
+
+    setCustomExpenses([...customExpenses, { name, amount }]);
     setNewExpenseName("");
-    setNewExpenseAmount(0);
+    setNewExpenseAmount("");
   };
 
   const calculate = () => {
-    const fixedExpenses = transport + cleaner + cleaningSupplies;
+    const parsedIncome = parseFloat(cleanNumber(income));
+    const parsedTransport = parseFloat(cleanNumber(transport));
+    const parsedCleaner = parseFloat(cleanNumber(cleaner));
+    const parsedSupplies = parseFloat(cleanNumber(cleaningSupplies));
+
+    const fixedExpenses = parsedTransport + parsedCleaner + parsedSupplies;
     const customTotal = customExpenses.reduce((sum, exp) => sum + exp.amount, 0);
     const totalExpenses = fixedExpenses + customTotal;
 
     const subcontractorExpenseShare = totalExpenses * subcontractorPercentage;
-    const netIncome = income - totalExpenses;
+    const netIncome = parsedIncome - totalExpenses;
     const subcontractorProfitShare = netIncome * subcontractorPercentage;
     const finalAmount = subcontractorExpenseShare + subcontractorProfitShare;
 
     const resultRows: ResultRow[] = [
-      { description: "Income", amount: income },
-      { description: "Transport Cost", amount: transport },
-      { description: "Cleaner Cost", amount: cleaner },
-      { description: "Cleaning Supplies", amount: cleaningSupplies },
+      { description: "Income", amount: parsedIncome },
+      { description: "Transport Cost", amount: parsedTransport },
+      { description: "Cleaner Cost", amount: parsedCleaner },
+      { description: "Cleaning Supplies", amount: parsedSupplies },
       ...customExpenses.map(exp => ({ description: `${exp.name} (Custom)`, amount: exp.amount })),
       { description: "Total Expenses", amount: totalExpenses },
       { description: "Subcontractor's Expense Share", amount: subcontractorExpenseShare },
@@ -65,13 +98,20 @@ export default function SubcontractorCalculator() {
   };
 
   const reset = () => {
-    setIncome(0);
-    setTransport(0);
-    setCleaner(0);
-    setCleaningSupplies(0);
+    setIncome("");
+    setTransport("");
+    setCleaner("");
+    setCleaningSupplies("");
     setCustomExpenses([]);
     setResults(null);
+    setInvoiceNumber("");
+    setStartDate("");
+    setEndDate("");
+    setNewExpenseAmount("");
+    setNewExpenseName("");
   };
+
+  const dateRange = startDate && endDate ? `${startDate} to ${endDate}` : "";
 
   return (
     <div style={{ padding: "2rem", maxWidth: "800px", margin: "0 auto", fontFamily: "Arial" }}>
@@ -82,26 +122,46 @@ export default function SubcontractorCalculator() {
         </h1>
       </div>
 
+      <div style={{ marginBottom: "1.5rem" }}>
+        <label style={{ display: "block", marginBottom: "0.5rem" }}>
+          Invoice Number
+          <input
+            type="text"
+            value={invoiceNumber}
+            onChange={(e) => setInvoiceNumber(e.target.value)}
+            placeholder="e.g. INV-2024-001"
+            style={{ width: "100%" }}
+          />
+        </label>
+
+        <div style={{ display: "flex", gap: "1rem" }}>
+          <label style={{ flex: 1 }}>
+            Start Date
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label style={{ flex: 1 }}>
+            End Date
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ width: "100%" }} />
+          </label>
+        </div>
+      </div>
+
       <div style={{ display: "grid", gap: "1rem" }}>
-        <label style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-          Income
-          <input type="number" value={income} onChange={(e) => setIncome(Number(e.target.value))} />
-        </label>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-          Transport Cost
-          <input type="number" value={transport} onChange={(e) => setTransport(Number(e.target.value))} />
-        </label>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-          Cleaner Cost
-          <input type="number" value={cleaner} onChange={(e) => setCleaner(Number(e.target.value))} />
-        </label>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-          Cleaning Supplies
-          <input type="number" value={cleaningSupplies} onChange={(e) => setCleaningSupplies(Number(e.target.value))} />
-        </label>
+        {[
+          { label: "Income", value: income, setter: setIncome },
+          { label: "Transport Cost", value: transport, setter: setTransport },
+          { label: "Cleaner Cost", value: cleaner, setter: setCleaner },
+          { label: "Cleaning Supplies", value: cleaningSupplies, setter: setCleaningSupplies }
+        ].map((field, idx) => (
+          <label key={idx} style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+            {field.label}
+            <input
+              type="number"
+              value={field.value}
+              onChange={(e) => field.setter(cleanNumber(e.target.value))}
+            />
+          </label>
+        ))}
 
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end" }}>
           <label style={{ flex: 2 }}>
@@ -120,7 +180,7 @@ export default function SubcontractorCalculator() {
               type="number"
               placeholder="e.g. 500"
               value={newExpenseAmount}
-              onChange={(e) => setNewExpenseAmount(Number(e.target.value))}
+              onChange={(e) => setNewExpenseAmount(cleanNumber(e.target.value))}
               style={{ width: "100%" }}
             />
           </label>
@@ -170,7 +230,12 @@ export default function SubcontractorCalculator() {
             </div>
           </div>
 
-          <button onClick={exportToPDF} style={{ marginTop: "1rem" }}>Download PDF</button>
+          <button
+            onClick={() => exportToPDF(invoiceNumber, dateRange)}
+            style={{ marginTop: "1rem" }}
+          >
+            Download PDF
+          </button>
         </>
       )}
     </div>
