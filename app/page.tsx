@@ -7,12 +7,15 @@ import html2canvas from "html2canvas";
 type Expense = { name: string; amount: number };
 type ResultRow = { description: string; amount: number };
 
+const MANAGEMENT_FEE = 3000;
+
 const exportToPDF = async (
   invoiceNumber: string,
-  dateRange: string
+  dateRange: string,
+  results: ResultRow[]
 ) => {
   const input = document.getElementById("results-table");
-  if (!input) return;
+  if (!input || !results) return;
 
   const canvas = await html2canvas(input);
   const imgData = canvas.toDataURL("image/png");
@@ -23,16 +26,19 @@ const exportToPDF = async (
 
   pdf.setFontSize(14);
   pdf.text("Uttam Student Village Sub contractor calculation", 10, 10);
-  if (invoiceNumber) {
-    pdf.setFontSize(12);
-    pdf.text(`Invoice #: ${invoiceNumber}`, 10, 18);
-  }
-  if (dateRange) {
-    pdf.setFontSize(12);
-    pdf.text(`Payment Range: ${dateRange}`, 10, 26);
-  }
+  if (invoiceNumber) pdf.text(`Invoice #: ${invoiceNumber}`, 10, 18);
+  if (dateRange) pdf.text(`Payment Range: ${dateRange}`, 10, 26);
 
   pdf.addImage(imgData, "PNG", 0, 35, width, height);
+
+  pdf.setFontSize(12);
+  pdf.text("Calculation Breakdown:", 10, height + 45);
+
+  const breakdownStart = height + 52;
+  results.forEach((row, i) => {
+    pdf.text(`${row.description}: R${row.amount.toFixed(2)}`, 10, breakdownStart + i * 7);
+  });
+
   pdf.save("uttam-subcontractor-report.pdf");
 };
 
@@ -41,6 +47,7 @@ export default function SubcontractorCalculator() {
   const [transport, setTransport] = useState<number | string>("");
   const [cleaner, setCleaner] = useState<number | string>("");
   const [cleaningSupplies, setCleaningSupplies] = useState<number | string>("");
+
   const [customExpenses, setCustomExpenses] = useState<Expense[]>([]);
   const [newExpenseName, setNewExpenseName] = useState("");
   const [newExpenseAmount, setNewExpenseAmount] = useState<number | string>("");
@@ -54,7 +61,7 @@ export default function SubcontractorCalculator() {
   const subcontractorPercentage = 35.55555555555556 / 100;
 
   const cleanNumber = (val: string | number) =>
-    String(val).replace(/^0+(?!$)/, "").trim(); // strip leading zeros except for single 0
+    String(val).replace(/^0+(?!$)/, "").trim();
 
   const addCustomExpense = () => {
     const name = newExpenseName.trim();
@@ -78,8 +85,9 @@ export default function SubcontractorCalculator() {
 
     const subcontractorExpenseShare = totalExpenses * subcontractorPercentage;
     const netIncome = parsedIncome - totalExpenses;
+
     const subcontractorProfitShare = netIncome * subcontractorPercentage;
-    const finalAmount = subcontractorExpenseShare + subcontractorProfitShare;
+    const finalAmount = subcontractorExpenseShare + (subcontractorProfitShare - MANAGEMENT_FEE);
 
     const resultRows: ResultRow[] = [
       { description: "Income", amount: parsedIncome },
@@ -89,9 +97,9 @@ export default function SubcontractorCalculator() {
       ...customExpenses.map(exp => ({ description: `${exp.name} (Custom)`, amount: exp.amount })),
       { description: "Total Expenses", amount: totalExpenses },
       { description: "Subcontractor's Expense Share", amount: subcontractorExpenseShare },
-      { description: "Net Income After Expenses", amount: netIncome },
-      { description: "Subcontractor's Profit Share", amount: subcontractorProfitShare },
-      { description: "Final Amount Owed to Subcontractor", amount: finalAmount }
+      { description: "Management Fee", amount: -MANAGEMENT_FEE },
+      { description: "Amount Owed to Subcontractor", amount: finalAmount },
+      { description: "Subcontractor's Profit Share (before fee)", amount: subcontractorProfitShare }
     ];
 
     setResults(resultRows);
@@ -103,10 +111,10 @@ export default function SubcontractorCalculator() {
     setCleaner("");
     setCleaningSupplies("");
     setCustomExpenses([]);
-    setResults(null);
     setInvoiceNumber("");
     setStartDate("");
     setEndDate("");
+    setResults(null);
     setNewExpenseAmount("");
     setNewExpenseName("");
   };
@@ -122,28 +130,26 @@ export default function SubcontractorCalculator() {
         </h1>
       </div>
 
-      <div style={{ marginBottom: "1.5rem" }}>
-        <label style={{ display: "block", marginBottom: "0.5rem" }}>
-          Invoice Number
-          <input
-            type="text"
-            value={invoiceNumber}
-            onChange={(e) => setInvoiceNumber(e.target.value)}
-            placeholder="e.g. INV-2024-001"
-            style={{ width: "100%" }}
-          />
-        </label>
+      <label style={{ display: "block", marginBottom: "0.5rem" }}>
+        Invoice Number
+        <input
+          type="text"
+          value={invoiceNumber}
+          onChange={(e) => setInvoiceNumber(e.target.value)}
+          placeholder="e.g. INV-2024-001"
+          style={{ width: "100%", marginBottom: "1rem" }}
+        />
+      </label>
 
-        <div style={{ display: "flex", gap: "1rem" }}>
-          <label style={{ flex: 1 }}>
-            Start Date
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ width: "100%" }} />
-          </label>
-          <label style={{ flex: 1 }}>
-            End Date
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ width: "100%" }} />
-          </label>
-        </div>
+      <div style={{ display: "flex", gap: "1rem", marginBottom: "1.5rem" }}>
+        <label style={{ flex: 1 }}>
+          Start Date
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ width: "100%" }} />
+        </label>
+        <label style={{ flex: 1 }}>
+          End Date
+          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ width: "100%" }} />
+        </label>
       </div>
 
       <div style={{ display: "grid", gap: "1rem" }}>
@@ -225,13 +231,13 @@ export default function SubcontractorCalculator() {
             </table>
 
             <div style={{ fontSize: "0.9rem", marginTop: "1rem", color: "#555" }}>
-              <p><strong>Subcontractor's Profit Share:</strong> This is their cut of the income <em>after</em> business expenses.</p>
-              <p><strong>Final Amount Owed:</strong> This includes both their share of profit and their share of expenses.</p>
+              <p><strong>Subcontractor's Profit Share:</strong> This is their cut of the income <em>after</em> business expenses and before management fee.</p>
+              <p><strong>Amount Owed:</strong> Profit share minus R3000 fee, plus expense share.</p>
             </div>
           </div>
 
           <button
-            onClick={() => exportToPDF(invoiceNumber, dateRange)}
+            onClick={() => exportToPDF(invoiceNumber, dateRange, results)}
             style={{ marginTop: "1rem" }}
           >
             Download PDF
