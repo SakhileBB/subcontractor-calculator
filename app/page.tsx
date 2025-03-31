@@ -1,72 +1,156 @@
 'use client';
 
 import { useState } from "react";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+
+type Expense = { name: string; amount: number };
+type ResultRow = { description: string; amount: number };
+
+const exportToPDF = async () => {
+  const input = document.getElementById("results-table");
+  if (!input) return;
+  const canvas = await html2canvas(input);
+  const imgData = canvas.toDataURL("image/png");
+  const pdf = new jsPDF("p", "mm", "a4");
+  const width = pdf.internal.pageSize.getWidth();
+  const height = (canvas.height * width) / canvas.width;
+  pdf.addImage(imgData, "PNG", 0, 10, width, height);
+  pdf.save("uttam-subcontractor-report.pdf");
+};
 
 export default function SubcontractorCalculator() {
   const [income, setIncome] = useState(0);
   const [transport, setTransport] = useState(0);
   const [cleaner, setCleaner] = useState(0);
   const [cleaningSupplies, setCleaningSupplies] = useState(0);
-  const [results, setResults] = useState<{ description: string; amount: number }[] | null>(null);
-
+  const [customExpenses, setCustomExpenses] = useState<Expense[]>([]);
+  const [newExpenseName, setNewExpenseName] = useState("");
+  const [newExpenseAmount, setNewExpenseAmount] = useState(0);
+  const [results, setResults] = useState<ResultRow[] | null>(null);
 
   const subcontractorPercentage = 35.55555555555556 / 100;
 
+  const addCustomExpense = () => {
+    if (!newExpenseName || newExpenseAmount <= 0) return;
+    setCustomExpenses([...customExpenses, { name: newExpenseName, amount: newExpenseAmount }]);
+    setNewExpenseName("");
+    setNewExpenseAmount(0);
+  };
+
   const calculate = () => {
-    const totalExpenses = transport + cleaner + cleaningSupplies;
+    const fixedExpenses = transport + cleaner + cleaningSupplies;
+    const customTotal = customExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalExpenses = fixedExpenses + customTotal;
+
     const subcontractorExpenseShare = totalExpenses * subcontractorPercentage;
     const netIncome = income - totalExpenses;
     const subcontractorProfitShare = netIncome * subcontractorPercentage;
     const finalAmount = subcontractorExpenseShare + subcontractorProfitShare;
 
-    setResults([
+    const resultRows: ResultRow[] = [
       { description: "Income", amount: income },
       { description: "Transport Cost", amount: transport },
       { description: "Cleaner Cost", amount: cleaner },
       { description: "Cleaning Supplies", amount: cleaningSupplies },
+      ...customExpenses.map(exp => ({ description: `${exp.name} (Custom)`, amount: exp.amount })),
       { description: "Total Expenses", amount: totalExpenses },
       { description: "Subcontractor's Expense Share", amount: subcontractorExpenseShare },
       { description: "Net Income After Expenses", amount: netIncome },
       { description: "Subcontractor's Profit Share", amount: subcontractorProfitShare },
       { description: "Final Amount Owed to Subcontractor", amount: finalAmount }
-    ]);
+    ];
+
+    setResults(resultRows);
+  };
+
+  const reset = () => {
+    setIncome(0);
+    setTransport(0);
+    setCleaner(0);
+    setCleaningSupplies(0);
+    setCustomExpenses([]);
+    setResults(null);
   };
 
   return (
-    <div style={{ padding: "2rem", maxWidth: "600px", margin: "0 auto", fontFamily: "Arial" }}>
-      <h1>🧮 Subcontractor Calculator</h1>
-      <div style={{ display: "grid", gap: "1rem", marginTop: "1rem" }}>
-        <input type="number" placeholder="Income" onChange={(e) => setIncome(Number(e.target.value))} />
-        <input type="number" placeholder="Transport Cost" onChange={(e) => setTransport(Number(e.target.value))} />
-        <input type="number" placeholder="Cleaner Cost" onChange={(e) => setCleaner(Number(e.target.value))} />
-        <input type="number" placeholder="Cleaning Supplies" onChange={(e) => setCleaningSupplies(Number(e.target.value))} />
-        <button onClick={calculate}>Calculate</button>
+    <div style={{ padding: "2rem", maxWidth: "800px", margin: "0 auto", fontFamily: "Arial" }}>
+      <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+        <img src="/analwa-logo.png" alt="Analwa Group Logo" style={{ maxWidth: "150px", marginBottom: "1rem" }} />
+        <h1 style={{ fontSize: "1.5rem", fontWeight: "bold" }}>
+          Uttam Student Village Sub contractor calculation
+        </h1>
+      </div>
+
+      <div style={{ display: "grid", gap: "1rem" }}>
+        <input type="number" placeholder="Income" value={income} onChange={(e) => setIncome(Number(e.target.value))} />
+        <input type="number" placeholder="Transport Cost" value={transport} onChange={(e) => setTransport(Number(e.target.value))} />
+        <input type="number" placeholder="Cleaner Cost" value={cleaner} onChange={(e) => setCleaner(Number(e.target.value))} />
+        <input type="number" placeholder="Cleaning Supplies" value={cleaningSupplies} onChange={(e) => setCleaningSupplies(Number(e.target.value))} />
+
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <input
+            type="text"
+            placeholder="New Expense Name"
+            value={newExpenseName}
+            onChange={(e) => setNewExpenseName(e.target.value)}
+            style={{ flex: 2 }}
+          />
+          <input
+            type="number"
+            placeholder="Amount"
+            value={newExpenseAmount}
+            onChange={(e) => setNewExpenseAmount(Number(e.target.value))}
+            style={{ flex: 1 }}
+          />
+          <button onClick={addCustomExpense}>Add</button>
+        </div>
+
+        {customExpenses.length > 0 && (
+          <div>
+            <p><strong>Added Expenses:</strong></p>
+            <ul>
+              {customExpenses.map((exp, i) => (
+                <li key={i}>{exp.name}: R{exp.amount.toFixed(2)}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: "1rem" }}>
+          <button onClick={calculate}>Calculate</button>
+          <button onClick={reset}>Reset</button>
+        </div>
       </div>
 
       {results && (
-        <div style={{ marginTop: "2rem" }}>
-          <table border={1} cellPadding={10} cellSpacing={0}>
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th>Amount (R)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((row, index) => (
-                <tr key={index}>
-                  <td>{row.description}</td>
-                  <td>{row.amount.toFixed(2)}</td>
+        <>
+          <div id="results-table" style={{ marginTop: "2rem" }}>
+            <table border={1} cellPadding={10} cellSpacing={0} style={{ width: "100%" }}>
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th>Amount (R)</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {results.map((row, index) => (
+                  <tr key={index}>
+                    <td>{row.description}</td>
+                    <td>{row.amount.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
-          <div style={{ fontSize: "0.9rem", marginTop: "1rem", color: "#555" }}>
-            <p><strong>Subcontractor's Profit Share:</strong> This is their cut of the income <em>after</em> business expenses.</p>
-            <p><strong>Final Amount Owed:</strong> This includes both their share of profit and their share of expenses.</p>
+            <div style={{ fontSize: "0.9rem", marginTop: "1rem", color: "#555" }}>
+              <p><strong>Subcontractor's Profit Share:</strong> This is their cut of the income <em>after</em> business expenses.</p>
+              <p><strong>Final Amount Owed:</strong> This includes both their share of profit and their share of expenses.</p>
+            </div>
           </div>
-        </div>
+
+          <button onClick={exportToPDF} style={{ marginTop: "1rem" }}>Download PDF</button>
+        </>
       )}
     </div>
   );
