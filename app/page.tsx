@@ -101,7 +101,7 @@ export default function SubcontractorCalculator() {
 
     const subcontractorExpenseShare = totalExpenses * SUBCONTRACTOR_PERCENT;
     const subcontractorProfitShare = netIncome * SUBCONTRACTOR_PERCENT;
-    const amountOwed = subcontractorProfitShare - MANAGEMENT_FEE + subcontractorExpenseShare;
+    const amountOwed = subcontractorProfitShare - MANAGEMENT_FEE;
 
     const resultRows: ResultRow[] = [
       { description: "Income", amount: parsedIncome },
