@@ -7,7 +7,8 @@ export default function SubcontractorCalculator() {
   const [transport, setTransport] = useState(0);
   const [cleaner, setCleaner] = useState(0);
   const [cleaningSupplies, setCleaningSupplies] = useState(0);
-  const [results, setResults] = useState(null);
+  const [results, setResults] = useState<{ description: string; amount: number }[] | null>(null);
+
 
   const subcontractorPercentage = 35.55555555555556 / 100;
 
