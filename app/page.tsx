@@ -1,5 +1,10 @@
 'use client';
 
+import React from "react"; // 👈 Add this line
+import { useState } from "react";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+
 import { useState } from "react";
 import jsPDF from "jspdf";
 
