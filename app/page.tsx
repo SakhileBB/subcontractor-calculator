@@ -8,6 +8,7 @@ type Expense = { name: string; amount: number };
 type ResultRow = { description: string; amount: number };
 
 const MANAGEMENT_FEE = 3000;
+const SUBCONTRACTOR_PERCENT = 0.356;
 
 const exportToPDF = async (
   invoiceNumber: string,
@@ -57,7 +58,7 @@ const exportToPDF = async (
   y += 10;
   doc.setFontSize(10);
   doc.setTextColor(100);
-  doc.text("Note: Profit Share already excludes the R3000 management fee.", 10, y);
+  doc.text("Note: The R3000 management fee has been subtracted from the profit share.", 10, y);
 
   doc.save("uttam-subcontractor-report.pdf");
 };
@@ -75,10 +76,7 @@ export default function SubcontractorCalculator() {
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-
   const [results, setResults] = useState<ResultRow[] | null>(null);
-
-  const subcontractorPercentage = 35.55555555555556 / 100;
 
   const cleanNumber = (val: string | number) =>
     String(val).replace(/^0+(?!$)/, "").trim();
@@ -87,7 +85,6 @@ export default function SubcontractorCalculator() {
     const name = newExpenseName.trim();
     const amount = parseFloat(cleanNumber(newExpenseAmount));
     if (!name || isNaN(amount) || amount <= 0) return;
-
     setCustomExpenses([...customExpenses, { name, amount }]);
     setNewExpenseName("");
     setNewExpenseAmount("");
@@ -101,28 +98,31 @@ export default function SubcontractorCalculator() {
     const fixedExpenses = parsedTransport + parsedCleaner + parsedSupplies;
     const customTotal = customExpenses.reduce((sum, exp) => sum + exp.amount, 0);
     const totalExpenses = fixedExpenses + customTotal;
-  
-    const subcontractorExpenseShare = totalExpenses * subcontractorPercentage;
     const netIncome = parsedIncome - totalExpenses;
-  
-    const subcontractorProfitShare = (netIncome * subcontractorPercentage) - MANAGEMENT_FEE;
-    const finalAmount = subcontractorExpenseShare + subcontractorProfitShare;
-  
+
+    const subcontractorExpenseShare = totalExpenses * SUBCONTRACTOR_PERCENT;
+    const subcontractorProfitShareRaw = netIncome * SUBCONTRACTOR_PERCENT;
+    const amountOwed = subcontractorExpenseShare + (subcontractorProfitShareRaw - MANAGEMENT_FEE);
+
     const resultRows: ResultRow[] = [
       { description: "Income", amount: parsedIncome },
       { description: "Transport Cost", amount: parsedTransport },
       { description: "Cleaner Cost", amount: parsedCleaner },
       { description: "Cleaning Supplies", amount: parsedSupplies },
-      ...customExpenses.map(exp => ({ description: `${exp.name} (Custom)`, amount: exp.amount })),
+      ...customExpenses.map(exp => ({
+        description: `${exp.name} (Custom)`,
+        amount: exp.amount
+      })),
       { description: "Total Expenses", amount: totalExpenses },
+      { description: "Net Income After Expenses", amount: netIncome },
       { description: "Subcontractor's Expense Share", amount: subcontractorExpenseShare },
-      { description: "Amount Owed to Subcontractor", amount: finalAmount },
-      { description: "Subcontractor's Profit Share", amount: subcontractorProfitShare }
+      { description: "Subcontractor's Profit Share", amount: subcontractorProfitShareRaw },
+      { description: "Management Fee", amount: MANAGEMENT_FEE },
+      { description: "Amount Owed to Subcontractor", amount: amountOwed }
     ];
-  
+
     setResults(resultRows);
   };
-  
 
   const reset = () => {
     setIncome("");
@@ -155,67 +155,52 @@ export default function SubcontractorCalculator() {
         </div>
 
         {/* INVOICE + DATES */}
-        <div style={{ marginBottom: "2rem" }}>
-          <label style={{ display: "block", fontWeight: "bold" }}>
-            Invoice Number
-            <input type="text" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)}
-              placeholder="e.g. INV-2024-001"
+        <label style={{ display: "block", fontWeight: "bold" }}>
+          Invoice Number
+          <input type="text" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)}
+            placeholder="e.g. INV-2024-001"
+            style={{ width: "100%", padding: "8px", borderRadius: "5px", border: "1px solid #ccc", marginTop: "0.3rem" }}
+          />
+        </label>
+
+        <div style={{ display: "flex", gap: "1rem", marginTop: "1rem", marginBottom: "2rem" }}>
+          <label style={{ flex: 1, fontWeight: "bold" }}>
+            Start Date
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
               style={{ width: "100%", padding: "8px", borderRadius: "5px", border: "1px solid #ccc", marginTop: "0.3rem" }}
             />
           </label>
-
-          <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
-            <label style={{ flex: 1, fontWeight: "bold" }}>
-              Start Date
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                style={{ width: "100%", padding: "8px", borderRadius: "5px", border: "1px solid #ccc", marginTop: "0.3rem" }}
-              />
-            </label>
-            <label style={{ flex: 1, fontWeight: "bold" }}>
-              End Date
-              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-                style={{ width: "100%", padding: "8px", borderRadius: "5px", border: "1px solid #ccc", marginTop: "0.3rem" }}
-              />
-            </label>
-          </div>
+          <label style={{ flex: 1, fontWeight: "bold" }}>
+            End Date
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+              style={{ width: "100%", padding: "8px", borderRadius: "5px", border: "1px solid #ccc", marginTop: "0.3rem" }}
+            />
+          </label>
         </div>
 
-        {/* EXPENSES INPUT */}
-        <h2 style={{ fontSize: "1.1rem", fontWeight: "bold", marginBottom: "0.5rem" }}>Enter Costs</h2>
-        <div style={{ display: "grid", gap: "1rem", marginBottom: "2rem" }}>
-          {[
-            { label: "Income", value: income, setter: setIncome },
-            { label: "Transport Cost", value: transport, setter: setTransport },
-            { label: "Cleaner Cost", value: cleaner, setter: setCleaner },
-            { label: "Cleaning Supplies", value: cleaningSupplies, setter: setCleaningSupplies }
-          ].map((field, idx) => (
-            <label key={idx} style={{ display: "flex", flexDirection: "column", fontWeight: "bold" }}>
-              {field.label}
-              <input type="number" value={field.value}
-                onChange={(e) => field.setter(cleanNumber(e.target.value))}
-                style={{ padding: "8px", border: "1px solid #ccc", borderRadius: "5px", marginTop: "0.3rem" }}
-              />
+        {/* STANDARD EXPENSE INPUTS */}
+        {[["Income", income, setIncome],
+          ["Transport Cost", transport, setTransport],
+          ["Cleaner Cost", cleaner, setCleaner],
+          ["Cleaning Supplies", cleaningSupplies, setCleaningSupplies]].map(([label, value, setter], i) => (
+            <label key={i} style={{ display: "flex", flexDirection: "column", fontWeight: "bold", marginBottom: "1rem" }}>
+              {label}
+              <input type="number" value={value as string} onChange={(e) => setter!(cleanNumber(e.target.value))}
+                style={{ padding: "8px", border: "1px solid #ccc", borderRadius: "5px", marginTop: "0.3rem" }} />
             </label>
           ))}
-        </div>
 
         {/* CUSTOM EXPENSES */}
-        <h2 style={{ fontSize: "1.1rem", fontWeight: "bold", marginBottom: "0.5rem" }}>Additional Expenses</h2>
+        <h3 style={{ fontWeight: "bold", marginTop: "2rem" }}>Additional Expenses</h3>
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end", marginBottom: "1rem" }}>
-          <label style={{ flex: 2 }}>
-            <span style={{ fontWeight: "bold" }}>Name</span>
-            <input type="text" placeholder="e.g. Security" value={newExpenseName}
-              onChange={(e) => setNewExpenseName(e.target.value)}
-              style={{ width: "100%", padding: "8px", borderRadius: "5px", border: "1px solid #ccc", marginTop: "0.3rem" }}
-            />
-          </label>
-          <label style={{ flex: 1 }}>
-            <span style={{ fontWeight: "bold" }}>Amount</span>
-            <input type="number" placeholder="e.g. 500" value={newExpenseAmount}
-              onChange={(e) => setNewExpenseAmount(cleanNumber(e.target.value))}
-              style={{ width: "100%", padding: "8px", borderRadius: "5px", border: "1px solid #ccc", marginTop: "0.3rem" }}
-            />
-          </label>
+          <input type="text" placeholder="e.g. Security" value={newExpenseName}
+            onChange={(e) => setNewExpenseName(e.target.value)}
+            style={{ flex: 2, padding: "8px", borderRadius: "5px", border: "1px solid #ccc" }}
+          />
+          <input type="number" placeholder="e.g. 500" value={newExpenseAmount}
+            onChange={(e) => setNewExpenseAmount(cleanNumber(e.target.value))}
+            style={{ flex: 1, padding: "8px", borderRadius: "5px", border: "1px solid #ccc" }}
+          />
           <button onClick={addCustomExpense} style={{
             backgroundColor: "#0e4d92", color: "#fff", padding: "10px 16px", borderRadius: "5px", border: "none", cursor: "pointer"
           }}>
@@ -224,14 +209,11 @@ export default function SubcontractorCalculator() {
         </div>
 
         {customExpenses.length > 0 && (
-          <div style={{ marginBottom: "1.5rem" }}>
-            <strong>Added Expenses:</strong>
-            <ul style={{ paddingLeft: "1rem", marginTop: "0.5rem" }}>
-              {customExpenses.map((exp, i) => (
-                <li key={i}>{exp.name}: R{exp.amount.toFixed(2)}</li>
-              ))}
-            </ul>
-          </div>
+          <ul style={{ paddingLeft: "1rem", marginBottom: "1.5rem" }}>
+            {customExpenses.map((exp, i) => (
+              <li key={i}>{exp.name}: R{exp.amount.toFixed(2)}</li>
+            ))}
+          </ul>
         )}
 
         {/* ACTION BUTTONS */}
@@ -247,7 +229,8 @@ export default function SubcontractorCalculator() {
             Reset
           </button>
         </div>
-        {/* RESULTS TABLE + PDF */}
+
+        {/* RESULTS TABLE */}
         {results && (
           <>
             <div id="results-table" style={{ marginTop: "2rem", overflowX: "auto" }}>
@@ -270,11 +253,9 @@ export default function SubcontractorCalculator() {
                   ))}
                 </tbody>
               </table>
-
-              <div style={{ fontSize: "0.9rem", marginTop: "1rem", color: "#555" }}>
-                <p><strong>Subcontractor's Profit Share:</strong> This is their cut of the income <em>after</em> business expenses and before the management fee.</p>
-                <p><strong>Amount Owed:</strong> Profit share minus the standard R3000 fee, plus their expense share.</p>
-              </div>
+              <p style={{ fontSize: "0.9rem", color: "#555", marginTop: "1rem" }}>
+                The R3000 management fee has already been subtracted from the subcontractor’s profit share.
+              </p>
             </div>
 
             <button onClick={() => exportToPDF(invoiceNumber, dateRange, results)} style={{
