@@ -14,32 +14,52 @@ const exportToPDF = async (
   dateRange: string,
   results: ResultRow[]
 ) => {
-  const input = document.getElementById("results-table");
-  if (!input || !results) return;
+  const doc = new jsPDF("p", "mm", "a4");
+  let y = 20;
 
-  const canvas = await html2canvas(input);
-  const imgData = canvas.toDataURL("image/png");
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text("Uttam Student Village Subcontractor Report", 10, y);
+  y += 10;
 
-  const pdf = new jsPDF("p", "mm", "a4");
-  const width = pdf.internal.pageSize.getWidth();
-  const height = (canvas.height * width) / canvas.width;
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  if (invoiceNumber) {
+    doc.text(`Invoice Number: ${invoiceNumber}`, 10, y);
+    y += 7;
+  }
+  if (dateRange) {
+    doc.text(`Payment Range: ${dateRange}`, 10, y);
+    y += 7;
+  }
 
-  pdf.setFontSize(14);
-  pdf.text("Uttam Student Village Sub contractor calculation", 10, 10);
-  if (invoiceNumber) pdf.text(`Invoice #: ${invoiceNumber}`, 10, 18);
-  if (dateRange) pdf.text(`Payment Range: ${dateRange}`, 10, 26);
+  y += 5;
+  doc.setLineWidth(0.1);
+  doc.line(10, y, 200, y);
+  y += 5;
 
-  pdf.addImage(imgData, "PNG", 0, 35, width, height);
+  doc.setFont("helvetica", "bold");
+  doc.text("Description", 10, y);
+  doc.text("Amount (R)", 160, y, { align: "right" });
+  y += 7;
 
-  pdf.setFontSize(12);
-  pdf.text("Calculation Breakdown:", 10, height + 45);
-
-  const breakdownStart = height + 52;
-  results.forEach((row, i) => {
-    pdf.text(`${row.description}: R${row.amount.toFixed(2)}`, 10, breakdownStart + i * 7);
+  doc.setFont("helvetica", "normal");
+  results.forEach((row) => {
+    if (y > 270) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.text(row.description, 10, y);
+    doc.text(`R${row.amount.toFixed(2)}`, 160, y, { align: "right" });
+    y += 7;
   });
 
-  pdf.save("uttam-subcontractor-report.pdf");
+  y += 10;
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text("Note: Profit Share already excludes the R3000 management fee.", 10, y);
+
+  doc.save("uttam-subcontractor-report.pdf");
 };
 
 export default function SubcontractorCalculator() {
@@ -74,33 +94,22 @@ export default function SubcontractorCalculator() {
   };
 
   const calculate = () => {
-    const parsedIncome = parseFloat(cleanNumber(income));
-    const parsedTransport = parseFloat(cleanNumber(transport));
-    const parsedCleaner = parseFloat(cleanNumber(cleaner));
-    const parsedSupplies = parseFloat(cleanNumber(cleaningSupplies));
+    const subcontractorProfitShareRaw = netIncome * subcontractorPercentage;
+const subcontractorProfitShare = subcontractorProfitShareRaw - MANAGEMENT_FEE;
+const finalAmount = subcontractorExpenseShare + subcontractorProfitShare;
 
-    const fixedExpenses = parsedTransport + parsedCleaner + parsedSupplies;
-    const customTotal = customExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-    const totalExpenses = fixedExpenses + customTotal;
+const resultRows: ResultRow[] = [
+  { description: "Income", amount: parsedIncome },
+  { description: "Transport Cost", amount: parsedTransport },
+  { description: "Cleaner Cost", amount: parsedCleaner },
+  { description: "Cleaning Supplies", amount: parsedSupplies },
+  ...customExpenses.map(exp => ({ description: `${exp.name} (Custom)`, amount: exp.amount })),
+  { description: "Total Expenses", amount: totalExpenses },
+  { description: "Subcontractor's Expense Share", amount: subcontractorExpenseShare },
+  { description: "Amount Owed to Subcontractor", amount: finalAmount },
+  { description: "Subcontractor's Profit Share", amount: subcontractorProfitShare }
+];
 
-    const subcontractorExpenseShare = totalExpenses * subcontractorPercentage;
-    const netIncome = parsedIncome - totalExpenses;
-
-    const subcontractorProfitShare = netIncome * subcontractorPercentage;
-    const finalAmount = subcontractorExpenseShare + (subcontractorProfitShare - MANAGEMENT_FEE);
-
-    const resultRows: ResultRow[] = [
-      { description: "Income", amount: parsedIncome },
-      { description: "Transport Cost", amount: parsedTransport },
-      { description: "Cleaner Cost", amount: parsedCleaner },
-      { description: "Cleaning Supplies", amount: parsedSupplies },
-      ...customExpenses.map(exp => ({ description: `${exp.name} (Custom)`, amount: exp.amount })),
-      { description: "Total Expenses", amount: totalExpenses },
-      { description: "Subcontractor's Expense Share", amount: subcontractorExpenseShare },
-      { description: "Management Fee", amount: -MANAGEMENT_FEE },
-      { description: "Amount Owed to Subcontractor", amount: finalAmount },
-      { description: "Subcontractor's Profit Share (before fee)", amount: subcontractorProfitShare }
-    ];
 
     setResults(resultRows);
   };
