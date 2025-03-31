@@ -149,7 +149,21 @@ export default function SubcontractorCalculator() {
         </div>
 
         {[["Income", income, setIncome], ["Transport Cost", transport, setTransport], ["Cleaner Cost", cleaner, setCleaner], ["Cleaning Supplies", cleaningSupplies, setCleaningSupplies]]
-          .map(([label, value, setter], i) => (
+          .map((entry, i) => {
+            const [label, value, setter] = entry as [string, string | number, React.Dispatch<React.SetStateAction<string | number>>];
+            return (
+              <label key={i} style={{ display: "flex", flexDirection: "column", fontWeight: "bold", marginTop: "1rem" }}>
+                {label}
+                <input
+                  type="number"
+                  value={value as string}
+                  onChange={(e) => setter(cleanNumber(e.target.value))}
+                  style={{ padding: "8px", border: "1px solid #ccc", borderRadius: "5px", marginTop: "0.3rem" }}
+                />
+              </label>
+            );
+          })
+          
             <label key={i} style={{ display: "flex", flexDirection: "column", fontWeight: "bold", marginTop: "1rem" }}>
               {label}
               <input type="number" value={value} onChange={(e) => setter(e.target.value)}
