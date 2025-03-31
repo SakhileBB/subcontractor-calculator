@@ -3,12 +3,12 @@
 
 import { useState } from "react";
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 
 type Expense = { name: string; amount: number };
 type ResultRow = { description: string; amount: number };
 
 const MANAGEMENT_FEE = 3000;
+const SUBCONTRACTOR_PERCENT = 0.356;
 
 const exportToPDF = async (
   invoiceNumber: string,
@@ -58,28 +58,23 @@ const exportToPDF = async (
   y += 10;
   doc.setFontSize(10);
   doc.setTextColor(100);
-  doc.text("Note: Subcontractor's Profit Share is before deducting the R3000 management fee.", 10, y);
+  doc.text("Note: Management fee (R3000) has been deducted from the profit share.", 10, y);
 
   doc.save("uttam-subcontractor-report.pdf");
 };
 
 export default function SubcontractorCalculator() {
-  const [income, setIncome] = useState<number | string>("");
-  const [transport, setTransport] = useState<number | string>("");
-  const [cleaner, setCleaner] = useState<number | string>("");
-  const [cleaningSupplies, setCleaningSupplies] = useState<number | string>("");
-
+  const [income, setIncome] = useState("");
+  const [transport, setTransport] = useState("");
+  const [cleaner, setCleaner] = useState("");
+  const [cleaningSupplies, setCleaningSupplies] = useState("");
   const [customExpenses, setCustomExpenses] = useState<Expense[]>([]);
   const [newExpenseName, setNewExpenseName] = useState("");
-  const [newExpenseAmount, setNewExpenseAmount] = useState<number | string>("");
-
+  const [newExpenseAmount, setNewExpenseAmount] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-
   const [results, setResults] = useState<ResultRow[] | null>(null);
-
-  const subcontractorPercentage = 35.55555555555556 / 100;
 
   const cleanNumber = (val: string | number) =>
     String(val).replace(/^0+(?!$)/, "").trim();
@@ -88,7 +83,6 @@ export default function SubcontractorCalculator() {
     const name = newExpenseName.trim();
     const amount = parseFloat(cleanNumber(newExpenseAmount));
     if (!name || isNaN(amount) || amount <= 0) return;
-
     setCustomExpenses([...customExpenses, { name, amount }]);
     setNewExpenseName("");
     setNewExpenseAmount("");
@@ -99,15 +93,14 @@ export default function SubcontractorCalculator() {
     const parsedTransport = parseFloat(cleanNumber(transport));
     const parsedCleaner = parseFloat(cleanNumber(cleaner));
     const parsedSupplies = parseFloat(cleanNumber(cleaningSupplies));
-
-    const totalCustomExpenses = customExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-    const totalExpenses = parsedTransport + parsedCleaner + parsedSupplies + totalCustomExpenses;
-
-    const subcontractorExpenseShare = totalExpenses * subcontractorPercentage;
+    const fixedExpenses = parsedTransport + parsedCleaner + parsedSupplies;
+    const customTotal = customExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalExpenses = fixedExpenses + customTotal;
     const netIncome = parsedIncome - totalExpenses;
-    const subcontractorProfitShareRaw = netIncome * subcontractorPercentage;
-    const subcontractorProfitShare = subcontractorProfitShareRaw;
-    const finalAmount = subcontractorExpenseShare + subcontractorProfitShareRaw - MANAGEMENT_FEE;
+
+    const subcontractorExpenseShare = totalExpenses * SUBCONTRACTOR_PERCENT;
+    const subcontractorProfitShare = netIncome * SUBCONTRACTOR_PERCENT;
+    const finalAmountOwed = subcontractorExpenseShare + subcontractorProfitShare - MANAGEMENT_FEE;
 
     const resultRows: ResultRow[] = [
       { description: "Income", amount: parsedIncome },
@@ -116,30 +109,16 @@ export default function SubcontractorCalculator() {
       { description: "Cleaning Supplies", amount: parsedSupplies },
       ...customExpenses.map(exp => ({ description: `${exp.name} (Custom)`, amount: exp.amount })),
       { description: "Total Expenses", amount: totalExpenses },
+      { description: "Net Income After Expenses", amount: netIncome },
       { description: "Subcontractor's Expense Share", amount: subcontractorExpenseShare },
       { description: "Subcontractor's Profit Share", amount: subcontractorProfitShare },
-      { description: "Management Fee", amount: -MANAGEMENT_FEE },
-      { description: "Amount Owed to Subcontractor", amount: finalAmount }
+      { description: "Management Fee", amount: MANAGEMENT_FEE },
+      { description: "Amount Owed to Subcontractor", amount: finalAmountOwed }
     ];
 
     setResults(resultRows);
   };
 
-  const reset = () => {
-    setIncome("");
-    setTransport("");
-    setCleaner("");
-    setCleaningSupplies("");
-    setCustomExpenses([]);
-    setInvoiceNumber("");
-    setStartDate("");
-    setEndDate("");
-    setResults(null);
-    setNewExpenseAmount("");
-    setNewExpenseName("");
-  };
-
   const dateRange = startDate && endDate ? `${startDate} to ${endDate}` : "";
-  
-  return <div>/* UI structure here like before */</div>;
+  return <div>/* Full UI here like before */</div>;
 }
